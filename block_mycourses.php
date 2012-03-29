@@ -3,6 +3,7 @@
 include_once($CFG->dirroot . '/course/lib.php');
 include_once($CFG->dirroot . '/lib/accesslib.php');
 
+
 class block_mycourses extends block_base {
     function init() {
         $this->title = get_string('mycourses');
@@ -50,6 +51,15 @@ class block_mycourses extends block_base {
 	
             $this->content->footer = html_writer::link(new moodle_url('/course/index.php'), 
 							get_string("fulllistofcourses"));
+            return $this->content;
+          }
+          
+	  if(include_once($CFG->dirroot . '/blocks/category_combo/block_category_combo.php'))
+	  {
+	    $cc = new block_category_combo();
+
+	    $cc->init();
+	    $this->content = $cc->get_content();
           }
         }
 
