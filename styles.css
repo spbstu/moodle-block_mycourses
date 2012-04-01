@@ -1,1 +1,2 @@
-.block_course_list .footer {margin-top: 5px;}
+.block_mycourses .footer {margin-top: 5px; min-width: 100%;}
+.block_mycourses .enrolledas {float: left; width: 50%; min-width: 50%;}
