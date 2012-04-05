@@ -36,11 +36,11 @@ class block_mycourses extends block_base {
                 $roles = get_user_roles($coursecontext, $USER->id);
                 foreach($roles as $role) {
                     if(empty($mycourses[$role->roleid])) {
-                        $mycourses[$role->roleid] = new stdClass;
-                        $mycourses[$role->roleid]->enrolledas = 
+                        $mycourses[$role->shortname] = new stdClass;
+                        $mycourses[$role->shortname]->enrolledas = 
                             get_string('enrolledas', 'block_mycourses', $tl->strtolower($role->name));
                     }
-                    $mycourses[$role->roleid]->courses[] = $course;
+                    $mycourses[$role->shortname]->courses[] = $course;
                 }
             }
 
@@ -62,7 +62,9 @@ class block_mycourses extends block_base {
                 }
             }
 
-            $icon = html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/course'),
+            $uicon = html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('t/user'),
+                                                  'class' => 'smallicon'));
+            $cicon = html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/course'),
                                                   'class' => 'icon'));
 
             foreach($mycourses as $k => $r) {
@@ -78,22 +80,22 @@ class block_mycourses extends block_base {
                         foreach ($coursecontactroles as $roleid) {
                             $users = get_role_users($roleid, $coursecontext);
                             foreach ($users as $user) {
-                                $teachers[] = html_writer::link(new moodle_url($CFG->wwwroot.'/user/view.php', 
+                                $teachers[] = $uicon . html_writer::link(new moodle_url($CFG->wwwroot.'/message/', 
                                                                 array('id' => $user->id)), fullname($user));
                             }
                         }
                         if(!empty($teachers)) {
-                            $teachers = html_writer::tag('ul', html_writer::alist($teachers));
+                            $teachers = html_writer::alist($teachers);
                         }  
                     }
 
-                    $list[] = $icon . html_writer::link($link, format_string($course->fullname)) . $teachers;
+                    $list[] = $cicon . html_writer::link($link, format_string($course->fullname)) . $teachers;
                 }
                 $this->content->text .= html_writer::tag('div', 
                                                          html_writer::tag('h3', $r->enrolledas) .
-                                                         html_writer::tag('ul', html_writer::alist($list), 
+                                                         html_writer::alist($list, 
                                                                           array('class' => 'unlist')),
-                                                         array('class' => 'enrolledas'));
+                                                         array('class' => $k));
             }
     
             $this->content->footer = html_writer::link(new moodle_url('/course/index.php'), 

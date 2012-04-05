@@ -1,2 +1,7 @@
-.block_mycourses .footer {margin-top: 5px; min-width: 100%;}
-.block_mycourses .enrolledas {float: left; width: 50%; min-width: 50%;}
+.block_mycourses h3 {padding-top: 1em; margin-top: 0;}
+.block_mycourses .footer {padding-top: 1em; width: 100%;}
+.block_mycourses .content .maineditingteacher,
+.block_mycourses .content .editingteacher,
+.block_mycourses .content .teacher,
+.block_mycourses .content .student {float: left; min-width: 47%; margin: 0 1%;}
+.block_mycourses .content .recommended {clear: both; width: auto; margin: 0 1%;}
