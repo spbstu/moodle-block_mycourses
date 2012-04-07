@@ -35,12 +35,15 @@ class block_mycourses extends block_base {
 
                 $roles = get_user_roles($coursecontext, $USER->id);
                 foreach($roles as $role) {
-                    if(empty($mycourses[$role->roleid])) {
-                        $mycourses[$role->shortname] = new stdClass;
-                        $mycourses[$role->shortname]->enrolledas = 
+                    if($role->shortname == 'manager') continue; /* HACK HACK HACK */
+                    if($role->shortname == 'coursecreator') continue;
+                    $id = 'role '.$role->shortname;
+                    if(empty($mycourses[$id])) {
+                        $mycourses[$id] = new stdClass;
+                        $mycourses[$id]->enrolledas = 
                             get_string('enrolledas', 'block_mycourses', $tl->strtolower($role->name));
                     }
-                    $mycourses[$role->shortname]->courses[] = $course;
+                    $mycourses[$id]->courses[$course->id] = $course;
                 }
             }
 
