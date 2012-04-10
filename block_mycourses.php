@@ -30,6 +30,9 @@ class block_mycourses extends block_base {
         }
 
         if ($courses = enrol_get_my_courses()) {
+            usort($courses, function($a, $b) {
+              return ($a->sortorder > $b->sortorder) ? 1 : -1;
+            });
             foreach ($courses as $course) {
                 $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
 
@@ -71,11 +74,6 @@ class block_mycourses extends block_base {
                                                   'class' => 'icon'));
 
             foreach($mycourses as $k => $r) {
-                usort($r->courses, function($a, $b) {
-                    if ($a->fullname == $b->fullname)
-                        return 0;
-                    return ($a->fullname > $b->fullname) ? 1 : -1;
-                });
                 $list = array();
                 foreach($r->courses as $course) {
                     $link = new moodle_url('/course/view.php', array('id' => $course->id));
