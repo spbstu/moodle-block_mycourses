@@ -71,6 +71,11 @@ class block_mycourses extends block_base {
                                                   'class' => 'icon'));
 
             foreach($mycourses as $k => $r) {
+                usort($r->courses, function($a, $b) {
+                    if ($a->fullname == $b->fullname)
+                        return 0;
+                    return ($a->fullname > $b->fullname) ? 1 : -1;
+                });
                 $list = array();
                 foreach($r->courses as $course) {
                     $link = new moodle_url('/course/view.php', array('id' => $course->id));
