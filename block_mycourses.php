@@ -90,9 +90,7 @@ class block_mycourses extends block_base {
                                                                 array('id' => $user->id)), fullname($user));
                             }
                         }
-                        if(!empty($teachers)) {
-                            $teachers = html_writer::alist($teachers);
-                        }  
+                        $teachers = html_writer::alist($teachers);
                     }
 
                     $list[] = $cicon . html_writer::link($link, format_string($course->fullname)) . $teachers;
