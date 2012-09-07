@@ -103,8 +103,10 @@ class block_mycourses extends block_base {
                                                      array('class' => $k));
         }
 
-        $this->content->footer = html_writer::link(new moodle_url('/course/index.php'), 
+        if(!empty($mycourses)) {
+            $this->content->footer = html_writer::link(new moodle_url('/course/index.php'), 
                                                    get_string("fulllistofcourses")) . " &hellip;";
+        }
 
         return $this->content;
     }
