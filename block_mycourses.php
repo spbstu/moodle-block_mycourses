@@ -77,13 +77,14 @@ class block_mycourses extends block_base {
         foreach($mycourses as $k => $r) {
             $list = array();
             foreach($r->courses as $course) {
+                $details = '';
                 $link = new moodle_url('/course/view.php', array('id' => $course->id));
 
+                $teachers = array();
                 if($k === 'recommended') {
                     $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
                     $coursecontactroles = explode(',', $CFG->coursecontact);
 
-                    $teachers = array();
                     foreach ($coursecontactroles as $roleid) {
                         $users = get_role_users($roleid, $coursecontext);
                         foreach ($users as $user) {
@@ -91,10 +92,22 @@ class block_mycourses extends block_base {
                                                             array('id' => $user->id)), fullname($user));
                         }
                     }
-                    $teachers = html_writer::alist($teachers);
+                    $details = html_writer::alist($teachers);
                 }
 
-                $list[] = $cicon . html_writer::link($link, format_string($course->fullname)) . $teachers;
+                $groups = array();
+                if($k === 'role maineditingteacher') {
+                    foreach(groups_get_all_groups($course->id) as $group) {
+                        $groups[] = $group->name;
+                    }
+                    
+                    if(!empty($groups)) {
+                        $details = html_writer::tag('div', implode(", ", $groups),
+                                    array('class' => 'tiny'));
+                    }
+                }
+
+                $list[] = $cicon . html_writer::link($link, format_string($course->fullname)) . $details;
             }
             $this->content->text .= html_writer::tag('div', 
                                                      html_writer::tag('h3', $r->enrolledas) .
