@@ -31,7 +31,7 @@ class block_mycourses extends block_base {
 
         if ($courses = enrol_get_my_courses()) {
             usort($courses, function($a, $b) {
-              return ($a->sortorder > $b->sortorder) ? 1 : -1;
+              return ($a->category.$a->sortorder > $b->category.$b->sortorder) ? 1 : -1;
             });
             foreach ($courses as $course) {
                 $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
