@@ -40,6 +40,9 @@ class block_mycourses extends block_base {
                 foreach($roles as $role) {
                     if($role->shortname == 'manager') continue; /* HACK HACK HACK */
                     if($role->shortname == 'coursecreator') continue;
+                    if($role->shortname == 'categorycreator') continue;
+                    if($role->shortname == 'auditor') continue;
+
                     $id = 'role '.$role->shortname;
                     if(empty($mycourses[$id])) {
                         $mycourses[$id] = new stdClass;
