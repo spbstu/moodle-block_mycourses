@@ -22,6 +22,7 @@ class block_mycourses extends block_base {
 
         $this->content = new stdClass;
         $this->content->footer = '';
+
         $tl = textlib_get_instance();
 
         $mycourses = array();
@@ -38,7 +39,8 @@ class block_mycourses extends block_base {
 
                 $roles = get_user_roles($coursecontext, $USER->id);
                 foreach($roles as $role) {
-                    if(!in_array($role->roleid,
+                    if($role->shortname !== 'student'
+                        and !in_array($role->roleid,
                         explode(',', $CFG->coursecontact))) continue;
 
                     $id = 'role '.$role->shortname;
@@ -115,6 +117,14 @@ class block_mycourses extends block_base {
                                                      html_writer::alist($list, 
                                                                       array('class' => 'unlist')),
                                                      array('class' => $k));
+        }
+
+        if (!empty($CFG->enablecourserequests)) {
+            $systemcontext = get_context_instance(CONTEXT_SYSTEM);
+
+            if (!has_capability('moodle/course:create', $systemcontext) && has_capability('moodle/course:request', $systemcontext)) {
+                $this->content->text = $OUTPUT->single_button('/course/request.php', get_string('requestcourse'), 'get') . $this->content->text;
+            }
         }
 
         if(!empty($mycourses)) {

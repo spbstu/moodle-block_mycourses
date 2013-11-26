@@ -3,3 +3,4 @@
 .block_mycourses .content .role {float: left; min-width: 47%; margin: 0 1%;}
 .block_mycourses .content .recommended {clear: both; width: auto; margin: 0 1%;}
 .block_mycourses .tiny {margin-top: 0; margin-left: 3em;font-size: 70%;}
+.block_mycourses .content .singlebutton {text-align: center;}
