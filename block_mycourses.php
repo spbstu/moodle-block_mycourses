@@ -6,6 +6,44 @@ include_once($CFG->dirroot . '/lib/datalib.php');
 
 include_once('locallib.php');
 
+function get_recommended_for_group($groupname) { 
+    global $CFG, $OUTPUT, $DB;
+
+    $uicon = html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('t/user'),
+                                          'class' => 'smallicon'));
+
+    if($groups = $DB->get_records('groups', array('name' => $groupname))) {
+        $r = new stdClass;
+        $r->header = get_string('recommended', 'block_mycourses', $groupname);
+
+        foreach($groups as $group) {
+            $coursecontext = get_context_instance(CONTEXT_COURSE, $group->courseid);
+            if(!is_enrolled($coursecontext, $USER)) {
+
+                $coursecontext = get_context_instance(CONTEXT_COURSE, $group->courseid);
+                $coursecontactroles = explode(',', $CFG->coursecontact);
+
+                $teachers = array();
+                foreach ($coursecontactroles as $roleid) {
+                    $users = get_role_users($roleid, $coursecontext);
+                    foreach ($users as $user) {
+                        $teachers[] = $uicon . html_writer::link(new moodle_url($CFG->wwwroot.'/message/', 
+                                                        array('id' => $user->id)), fullname($user));
+                    }
+                }
+
+                $r->items[] = (object) array('id' => $group->courseid,
+                                             'fullname' => $coursecontext->get_context_name(),
+                                             'url' => $coursecontext->get_url(),
+                                             'details' => html_writer::alist($teachers));
+            }
+        }
+        if(!empty($r->items)) {
+            return $r;
+        } else
+            return NULL;
+    }
+}
 class block_mycourses extends block_base {
     function init() {
         $this->title = get_string('mycourses');
@@ -46,30 +84,30 @@ class block_mycourses extends block_base {
                         $mycourses[$k]->header = 
                             get_string('enrolledas', 'block_mycourses', $tl->strtolower($role->name));
                     }
-                    $mycourses[$k]->items[$course->id] = (object) array('id'=>$course->id, 'fullname'=>$course->fullname);
+
+                    if($k === 'maineditingteacher') {
+                        $groups = array();
+                        foreach(groups_get_all_groups($course->id) as $group) {
+                            $groups[] = $group->name;
+                        }
+                        
+                        if(!empty($groups)) {
+                            $details = implode(", ", $groups);
+                        } else {
+                            $details = html_writer::link("/group/?id=".$course->id, get_string('creategroups', 'block_mycourses'));
+                        }
+                    }
+
+                    $mycourses[$k]->items[$course->id] = (object) array('id' => $course->id, 'fullname' => $course->fullname,
+                                                                        'details' => !empty($details) ? html_writer::tag('div', $details, array('class' => 'tiny')) : NULL);
+
                 }
             }
         }
 
-        if($idnumber = trim($DB->get_field('user', 'idnumber', array('id' => $USER->id))))
-        {
-            if($groups = block_mycourses_get_groups_by_name($idnumber)) {
-                $r = new stdClass;
-                $r->header = get_string('recommended', 'block_mycourses', $idnumber);
-
-                foreach($groups as $group) {
-                    $coursecontext = get_context_instance(CONTEXT_COURSE, $group->courseid);
-                    if(!is_enrolled($coursecontext, $USER)) {
-                        $r->items[] = (object) array('id' => $group->courseid,
-                                                     'fullname' => $coursecontext->get_context_name(),
-                                                     'url' => $coursecontext->get_url());
-
-                    }
-                }
-                if(!empty($r->courses)) {
-                    $mycourses['recommended'] = $r;
-                }
-            }
+        if($idnumber = trim($DB->get_field('user', 'idnumber', array('id' => $USER->id)))) {
+            $r = get_recommended_for_group($idnumber);
+            if($r) $mycourses['recommended'] = $r;
         }
 
         // from admin/roles/userroles.php
@@ -105,8 +143,6 @@ class block_mycourses extends block_base {
 
 // --- OUTPUT ---
 
-        $uicon = html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('t/user'),
-                                              'class' => 'smallicon'));
         $cicon = html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/course'),
                                               'class' => 'icon'));
         $aicon = html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/admin'),
@@ -119,34 +155,7 @@ class block_mycourses extends block_base {
                 $link = new moodle_url('/course/view.php', array('id' => $course->id));
                 if(!empty($course->url)) $link = $course->url;
 
-                $teachers = array();
-                if($k === 'recommended') {
-                    $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
-                    $coursecontactroles = explode(',', $CFG->coursecontact);
-
-                    foreach ($coursecontactroles as $roleid) {
-                        $users = get_role_users($roleid, $coursecontext);
-                        foreach ($users as $user) {
-                            $teachers[] = $uicon . html_writer::link(new moodle_url($CFG->wwwroot.'/message/', 
-                                                            array('id' => $user->id)), fullname($user));
-                        }
-                    }
-                    $details = html_writer::alist($teachers);
-                }
-
-                $groups = array();
-                if($k === 'role maineditingteacher') {
-                    foreach(groups_get_all_groups($course->id) as $group) {
-                        $groups[] = $group->name;
-                    }
-                    
-                    if(!empty($groups)) {
-                        $details = implode(", ", $groups);
-                    } else {
-                        $details = html_writer::link("/group/?id=".$course->id, get_string('creategroups', 'block_mycourses'));
-                    }
-                    $details = html_writer::tag('div', $details, array('class' => 'tiny'));
-                }
+                $details = $course->details;
 
                 $pcb = plugin_callback('block', 'course_approval', 'approval', 'get', array($course));
                 if($pcb and $pcb->approved and $k !== 'role student') {
@@ -179,4 +188,6 @@ class block_mycourses extends block_base {
 
         return $this->content;
     }
+
+
 }
