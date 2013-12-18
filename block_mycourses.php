@@ -96,7 +96,7 @@ class block_mycourses extends block_base {
                         } else {
                             $details = html_writer::link("/group/?id=".$course->id, get_string('creategroups', 'block_mycourses'));
                         }
-                    }
+                    } else $details = null;
 
                     $mycourses[$k]->items[$course->id] = (object) array('id' => $course->id, 'fullname' => $course->fullname,
                                                                         'details' => !empty($details) ? html_writer::tag('div', $details, array('class' => 'tiny')) : NULL);
