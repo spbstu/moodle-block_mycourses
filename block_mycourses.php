@@ -4,10 +4,8 @@ include_once($CFG->dirroot . '/lib/accesslib.php');
 include_once($CFG->dirroot . '/lib/grouplib.php');
 include_once($CFG->dirroot . '/lib/datalib.php');
 
-include_once('locallib.php');
-
 function get_recommended_for_group($groupname) { 
-    global $CFG, $OUTPUT, $DB;
+    global $CFG, $OUTPUT, $DB, $USER;
 
     $uicon = html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('t/user'),
                                           'class' => 'smallicon'));
@@ -32,9 +30,9 @@ function get_recommended_for_group($groupname) {
                     }
                 }
 
-                $r->items[] = (object) array('id' => $group->courseid,
-                                             'fullname' => $coursecontext->get_context_name(),
+                $r->items[] = (object) array('fullname' => $coursecontext->get_context_name(),
                                              'url' => $coursecontext->get_url(),
+                                             'medals' => '',
                                              'details' => html_writer::alist($teachers));
             }
         }
@@ -85,6 +83,7 @@ class block_mycourses extends block_base {
                             get_string('enrolledas', 'block_mycourses', $tl->strtolower($role->name));
                     }
 
+                    $medals = null;
                     if($k === 'maineditingteacher') {
                         $groups = array();
                         foreach(groups_get_all_groups($course->id) as $group) {
@@ -96,10 +95,21 @@ class block_mycourses extends block_base {
                         } else {
                             $details = html_writer::link("/group/?id=".$course->id, get_string('creategroups', 'block_mycourses'));
                         }
+                        $details = html_writer::tag('div', $details, array('class' => 'tiny'));
+                        $pcb = plugin_callback('block', 'course_approval', 'approval', 'get', array($course));
+
+                        if($pcb and $pcb->approved) {
+                            $medals = html_writer::empty_tag('img', 
+                                                      array('src' => $OUTPUT->pix_url('medal1', 'block_mycourses'),
+                                                            'class' => 'icon',
+                                                            'title' => strftime(get_string('approved', 'block_course_approval'), $pcb->approved)));
+                        };
                     } else $details = null;
 
-                    $mycourses[$k]->items[$course->id] = (object) array('id' => $course->id, 'fullname' => $course->fullname,
-                                                                        'details' => !empty($details) ? html_writer::tag('div', $details, array('class' => 'tiny')) : NULL);
+                    $mycourses[$k]->items[$course->id] = (object) array(/*'id' => $course->id,*/ 'fullname' => $course->fullname,
+                                                                        'url' => $coursecontext->get_url(),
+                                                                        'details' => $details, 
+                                                                        'medals' => $medals);
 
                 }
             }
@@ -128,17 +138,63 @@ class block_mycourses extends block_base {
         $roleassignments = $DB->get_records_sql($sql, array($USER->id, CONTEXT_COURSECAT));
 
         foreach($roleassignments as $ra) {
-             $context = context::instance_by_id($ra->contextid);
+             $context = get_context_instance_by_id($ra->contextid);
 
              if(empty($mycourses[$context->id])) {
                $r = new stdClass;
                $r->header = $context->get_context_name();
                $mycourses[$context->id] = $r; 
+
+//if($USER->id == 13403 ) 
+//{
+
+
+$sql = "SELECT COUNT(*) as counter FROM {course} c
+       LEFT JOIN {course_approval} ca ON ca.course = c.id
+       WHERE c.category = ?";
+$approved = " AND ca.approved IS NOT NULL";
+
+$rec = function($catid) use(&$rec, $sql, $approved) { 
+    global $DB;
+
+    $x = $DB->get_record_sql($sql,           array($catid))->counter;
+    $y = $DB->get_record_sql($sql.$approved, array($catid))->counter;
+
+    foreach(get_child_categories($catid) as $c)  {
+        list($a, $b) = $rec($c->id);
+
+        $x += $a;
+        $y += $b;
+    }
+
+    return array($x, $y);
+};
+
+  list($a, $b) = $rec($context->instanceid);
+  $r->items[] =  (object) array('fullname' => html_writer::tag('div', 'ВСЕГО курсов: '. $a .', аттестовано: '. $b, array('class' => 'tiny'))
+                                );
+
+$categories = get_child_categories($context->instanceid);
+
+foreach($categories as $c)
+{
+  list($a, $b) = $rec($c->id);
+
+  $context = get_context_instance(CONTEXT_COURSECAT, $c->id);
+  $r->items[] =  (object) array('fullname' => $c->name, 'url' => $context->get_url(),
+                                'details' => html_writer::tag('div', 'Курсов: '. $a .', аттестовано: '. $b, array('class' => 'tiny')),
+                                'icon' => html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/admin'), 'class' => 'icon'))
+                                );
+}
+
+//}
              }
          
-             $r->items[$ra->roleid] = (object) array('id' => $id, 'fullname' => $ra->rolename, 'url'=> $context->get_url(),
+/*
+             $r->items[$ra->roleid] = (object) array('fullname' => $ra->rolename, 'url'=> $context->get_url(),
+                                                     'details' => '', 'medals' => '',
                                                      'icon' => html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/admin'), 'class' => 'icon')));
-
+*/
         }
 
 // --- OUTPUT ---
@@ -151,19 +207,13 @@ class block_mycourses extends block_base {
         foreach($mycourses as $k => $r) {
             $list = array();
             foreach($r->items as $course) {
-                $details = '';
-                $link = new moodle_url('/course/view.php', array('id' => $course->id));
-                if(!empty($course->url)) $link = $course->url;
 
-                $details = $course->details;
-
-                $pcb = plugin_callback('block', 'course_approval', 'approval', 'get', array($course));
-                if($pcb and $pcb->approved and $k !== 'role student') {
-                    $micon = html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('medal1', 'block_mycourses'),
-                                              'class' => 'icon'));
-                } else $micon = '';
                 $icon = empty($course->icon) ? $cicon : $course->icon;
-                $list[] = $icon . html_writer::link($link, format_string($course->fullname)) . $micon . $details;
+                if(!empty($course->url)) {
+                    $list[] = $icon . html_writer::link($course->url, format_string($course->fullname)) . $course->medals . $course->details;
+                } else {
+                   $list[] = format_string($course->fullname) . $course->details;
+                }
             }
             $this->content->text .= html_writer::tag('div', 
                                                      html_writer::tag('h3', $r->header) .
