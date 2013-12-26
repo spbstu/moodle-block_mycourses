@@ -4,6 +4,23 @@ include_once($CFG->dirroot . '/lib/accesslib.php');
 include_once($CFG->dirroot . '/lib/grouplib.php');
 include_once($CFG->dirroot . '/lib/datalib.php');
 
+function get_pending() {
+    global $DB, $USER, $OUTPUT;
+
+    if($pending = $DB->get_records('course_request', array('requester'=>$USER->id))) {
+    
+        $r = new stdClass;
+        $r->header = get_string('coursespending');
+        $r->items = array();
+        foreach($pending as $course) {
+            $r->items[] = (object) array('fullname' => '('.$course->shortname.') '.$course->fullname,
+                                'icon' => html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/scheduled'), 'class' => 'icon')));
+        }
+        return $r;
+    } else
+        return null;
+}
+
 function get_recommended_for_group($groupname) { 
     global $CFG, $OUTPUT, $DB, $USER;
 
@@ -39,7 +56,7 @@ function get_recommended_for_group($groupname) {
         if(!empty($r->items)) {
             return $r;
         } else
-            return NULL;
+            return null;
     }
 }
 class block_mycourses extends block_base {
@@ -62,6 +79,8 @@ class block_mycourses extends block_base {
         if (!isloggedin() || isguestuser()) {
             return $this->content;
         }
+
+        if($r = get_pending()) $mycourses['pending'] = $r;
 
         if ($courses = enrol_get_my_courses()) {
             usort($courses, function($a, $b) {
@@ -116,8 +135,7 @@ class block_mycourses extends block_base {
         }
 
         if($idnumber = trim($DB->get_field('user', 'idnumber', array('id' => $USER->id)))) {
-            $r = get_recommended_for_group($idnumber);
-            if($r) $mycourses['recommended'] = $r;
+            if($r = get_recommended_for_group($idnumber)) $mycourses['recommended'] = $r;
         }
 
         // from admin/roles/userroles.php
@@ -135,6 +153,7 @@ class block_mycourses extends block_base {
                 AND c.contextlevel = ?
             ORDER BY
                 contextlevel DESC, contextid ASC, r.sortorder";
+
         $roleassignments = $DB->get_records_sql($sql, array($USER->id, CONTEXT_COURSECAT));
 
         foreach($roleassignments as $ra) {
@@ -143,58 +162,53 @@ class block_mycourses extends block_base {
              if(empty($mycourses[$context->id])) {
                $r = new stdClass;
                $r->header = $context->get_context_name();
-               $mycourses[$context->id] = $r; 
 
-//if($USER->id == 13403 ) 
-//{
+                $sql = "SELECT COUNT(*) as counter FROM {course} c
+                       LEFT JOIN {course_approval} ca ON ca.course = c.id
+                       WHERE c.format = 'weeks' AND c.category = ?";
+                $approved = " AND ca.approved IS NOT NULL";
 
+                $rec = function($catid) use(&$rec, $sql, $approved) { 
+                    global $DB;
 
-$sql = "SELECT COUNT(*) as counter FROM {course} c
-       LEFT JOIN {course_approval} ca ON ca.course = c.id
-       WHERE c.category = ?";
-$approved = " AND ca.approved IS NOT NULL";
+                    $x = $DB->get_record_sql($sql,           array($catid))->counter;
+                    $y = $DB->get_record_sql($sql.$approved, array($catid))->counter;
 
-$rec = function($catid) use(&$rec, $sql, $approved) { 
-    global $DB;
+                    foreach(get_child_categories($catid) as $c)  {
+                        list($a, $b) = $rec($c->id);
 
-    $x = $DB->get_record_sql($sql,           array($catid))->counter;
-    $y = $DB->get_record_sql($sql.$approved, array($catid))->counter;
+                        $x += $a;
+                        $y += $b;
+                    }
 
-    foreach(get_child_categories($catid) as $c)  {
-        list($a, $b) = $rec($c->id);
+                    return array($x, $y);
+                };
 
-        $x += $a;
-        $y += $b;
-    }
+                if($DB->get_field('course_categories', 'visible', array('id'=>$context->instanceid))) {
+                    list($a, $b) = $rec($context->instanceid);
+                    if($a != 0)
+                        $r->items[] =  (object) array('fullname' => 'ВСЕГО курсов: '. $a .', аттестовано: '. $b. ' ('.round($b/$a*100).'%)',
+                                                    'url' => $context->get_url(), 
+                                                    'icon' => html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/admin'), 'class' => 'icon')),
+                                                    'details' => '', 'medals' => '');
 
-    return array($x, $y);
-};
+                    $categories = get_child_categories($context->instanceid);
 
-  list($a, $b) = $rec($context->instanceid);
-  $r->items[] =  (object) array('fullname' => html_writer::tag('div', 'ВСЕГО курсов: '. $a .', аттестовано: '. $b, array('class' => 'tiny'))
-                                );
+                    foreach($categories as $c) {
+                      list($a, $b) = $rec($c->id);
 
-$categories = get_child_categories($context->instanceid);
+                      $context = get_context_instance(CONTEXT_COURSECAT, $c->id);
+                      if($c->visible)
+                      $r->items[] =  (object) array('fullname' => $c->name, 'url' => $context->get_url(),
+                                                    'details' => html_writer::tag('div', 'Курсов: '. $a .', аттестовано: '. $b. ' ('.round($b/$a*100).'%)', array('class' => 'tiny')),
+                                                    'icon' => html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/admin'), 'class' => 'icon'))
+                                                    );
+                    }
+                }
 
-foreach($categories as $c)
-{
-  list($a, $b) = $rec($c->id);
-
-  $context = get_context_instance(CONTEXT_COURSECAT, $c->id);
-  $r->items[] =  (object) array('fullname' => $c->name, 'url' => $context->get_url(),
-                                'details' => html_writer::tag('div', 'Курсов: '. $a .', аттестовано: '. $b, array('class' => 'tiny')),
-                                'icon' => html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/admin'), 'class' => 'icon'))
-                                );
-}
-
-//}
+                if(!empty($r->items))
+                    $mycourses[$context->id] = $r; 
              }
-         
-/*
-             $r->items[$ra->roleid] = (object) array('fullname' => $ra->rolename, 'url'=> $context->get_url(),
-                                                     'details' => '', 'medals' => '',
-                                                     'icon' => html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/admin'), 'class' => 'icon')));
-*/
         }
 
 // --- OUTPUT ---
@@ -212,7 +226,7 @@ foreach($categories as $c)
                 if(!empty($course->url)) {
                     $list[] = $icon . html_writer::link($course->url, format_string($course->fullname)) . $course->medals . $course->details;
                 } else {
-                   $list[] = format_string($course->fullname) . $course->details;
+                   $list[] = $icon . format_string($course->fullname) . $course->details;
                 }
             }
             $this->content->text .= html_writer::tag('div', 
