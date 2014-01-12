@@ -33,7 +33,8 @@ function get_recommended_for_group($groupname) {
 
         foreach($groups as $group) {
             $coursecontext = get_context_instance(CONTEXT_COURSE, $group->courseid);
-            if(!is_enrolled($coursecontext, $USER)) {
+            $visible = $DB->get_field('course', 'visible', array('id'=>$group->courseid));
+            if($visible and !is_enrolled($coursecontext, $USER)) {
 
                 $coursecontext = get_context_instance(CONTEXT_COURSE, $group->courseid);
                 $coursecontactroles = explode(',', $CFG->coursecontact);
@@ -82,10 +83,7 @@ class block_mycourses extends block_base {
 
         if($r = get_pending()) $mycourses['pending'] = $r;
 
-        if ($courses = enrol_get_my_courses()) {
-            usort($courses, function($a, $b) {
-              return ($a->category.$a->sortorder > $b->category.$b->sortorder) ? 1 : -1;
-            });
+        if ($courses = enrol_get_my_courses('format, visible', 'sortorder ASC')) {
             foreach ($courses as $course) {
                 $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
 
@@ -103,7 +101,7 @@ class block_mycourses extends block_base {
                     }
 
                     $medals = null;
-                    if($k === 'maineditingteacher') {
+                    if($k === 'maineditingteacher' and $course->format == 'weeks') {
                         $groups = array();
                         foreach(groups_get_all_groups($course->id) as $group) {
                             $groups[] = $group->name;
@@ -125,10 +123,11 @@ class block_mycourses extends block_base {
                         };
                     } else $details = null;
 
-                    $mycourses[$k]->items[$course->id] = (object) array(/*'id' => $course->id,*/ 'fullname' => $course->fullname,
+                    $mycourses[$k]->items[$course->id] = (object) array('fullname' => $course->fullname,
                                                                         'url' => $coursecontext->get_url(),
                                                                         'details' => $details, 
-                                                                        'medals' => $medals);
+                                                                        'medals' => $medals,
+                                         'icon' => html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url($course->visible ? 'i/course':'i/show'), 'class' => 'icon')));
 
                 }
             }
@@ -213,8 +212,6 @@ class block_mycourses extends block_base {
 
 // --- OUTPUT ---
 
-        $cicon = html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/course'),
-                                              'class' => 'icon'));
         $aicon = html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/admin'),
                                               'class' => 'icon'));
 
