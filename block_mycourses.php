@@ -84,6 +84,14 @@ class block_mycourses extends block_base {
         if($r = get_pending()) $mycourses['pending'] = $r;
 
         if ($courses = enrol_get_my_courses('format, visible', 'sortorder ASC')) {
+            $cnames = array();
+            foreach ($courses as $course) {
+                if(!empty($cnames[$course->fullname])) {
+                    $cnames[$course->fullname] ++;
+                } else {
+                    $cnames[$course->fullname] = 1;
+                }
+            }
             foreach ($courses as $course) {
                 $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
 
@@ -123,9 +131,9 @@ class block_mycourses extends block_base {
                         };
                     } else $details = null;
 
-                    $mycourses[$k]->items[$course->id] = (object) array('fullname' => $course->fullname,
+                    $mycourses[$k]->items[$course->id] = (object) array('fullname' => ($cnames[$course->fullname] > 1 ? $course->shortname : $course->fullname),
                                                                         'url' => $coursecontext->get_url(),
-                                                                        'details' => $details, 
+                                                                        'details' => $details,
                                                                         'medals' => $medals,
                                          'icon' => html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url($course->visible ? 'i/course':'i/show'), 'class' => 'icon')));
 
