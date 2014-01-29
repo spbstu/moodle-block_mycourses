@@ -204,9 +204,9 @@ class block_mycourses extends block_base {
                     foreach($categories as $c) {
                       list($a, $b) = $rec($c->id);
 
-                      $context = get_context_instance(CONTEXT_COURSECAT, $c->id);
+                      $ctxt = get_context_instance(CONTEXT_COURSECAT, $c->id);
                       if($c->visible)
-                      $r->items[] =  (object) array('fullname' => $c->name, 'url' => $context->get_url(),
+                      $r->items[] =  (object) array('fullname' => $c->name, 'url' => $ctxt->get_url(),
                                                     'details' => html_writer::tag('div', 'Курсов: '. $a .', аттестовано: '. $b. ' ('.round($b/$a*100).'%)', array('class' => 'tiny')),
                                                     'icon' => html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/admin'), 'class' => 'icon'))
                                                     );
@@ -215,7 +215,7 @@ class block_mycourses extends block_base {
 
                 if(!empty($r->items))
                     $mycourses[$context->id] = $r; 
-             }
+            } 
         }
 
 // --- OUTPUT ---
